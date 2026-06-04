@@ -1,0 +1,42 @@
+---
+title: "RforMarineScience_Week3_2.12"
+format: html
+editor: visual
+---
+
+
+#Introduction
+
+#HouseKeeping
+```{r}
+#Set options, housekeeping
+knitr::opts_chunk$set(
+  echo = FALSE, 
+  include = TRUE, 
+  message = FALSE, 
+  warning = FALSE)
+```
+
+```{r housekeeping}
+rm(list = ls())
+```
+
+#Packages
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(readxl)
+```
+
+#Load files 
+```{r}
+catch1 <- read_excel("C:/Users/andre/Techniques in Marine Science 1/Module_02/Module_02_RforMarineScience/data/workshop2/estuary_catch_log.xlsx", sheet = 1)
+catch2 <- read_excel("C:/Users/andre/Techniques in Marine Science 1/Module_02/Module_02_RforMarineScience/data/workshop2/estuary_catch_log.xlsx", sheet = 2)
+catch3 <- read_excel("C:/Users/andre/Techniques in Marine Science 1/Module_02/Module_02_RforMarineScience/data/workshop2/estuary_catch_log.xlsx", sheet = 3)
+catch4 <- read_excel("C:/Users/andre/Techniques in Marine Science 1/Module_02/Module_02_RforMarineScience/data/workshop2/estuary_catch_log.xlsx", sheet = 4)
+
+catch_data <- bind_rows(catch1, catch2, catch3, catch4)
+```
+
+
