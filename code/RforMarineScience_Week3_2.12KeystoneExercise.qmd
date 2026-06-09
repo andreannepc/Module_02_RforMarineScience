@@ -2,12 +2,24 @@
 title: "RforMarineScience_Week3_2.12"
 format: html
 editor: visual
+output: 
+ html_document:
+    code_folding: show
+    collapse: no
+    df_print: paged
+    fig_caption: yes
+    fig_height: 6
+    fig_width: 10
+    highlight: textmate
+    theme: spacelab
+    toc: yes
+    toc_float: yes
+editor_options: 
+  chunk_output_type: inline
 ---
 
+#Introduction #Keystone 2.12 #House Keeping
 
-#Introduction
-
-#HouseKeeping
 ```{r}
 #Set options, housekeeping
 knitr::opts_chunk$set(
@@ -22,6 +34,7 @@ rm(list = ls())
 ```
 
 #Packages
+
 ```{r}
 library(tidyverse)
 library(ggplot2)
@@ -29,7 +42,8 @@ library(dplyr)
 library(readxl)
 ```
 
-#Load files 
+#Load files
+
 ```{r}
 catch1 <- read_excel("C:/Users/andre/Techniques in Marine Science 1/Module_02/Module_02_RforMarineScience/data/workshop2/estuary_catch_log.xlsx", sheet = 1)
 catch2 <- read_excel("C:/Users/andre/Techniques in Marine Science 1/Module_02/Module_02_RforMarineScience/data/workshop2/estuary_catch_log.xlsx", sheet = 2)
@@ -39,4 +53,9 @@ catch4 <- read_excel("C:/Users/andre/Techniques in Marine Science 1/Module_02/Mo
 catch_data <- bind_rows(catch1, catch2, catch3, catch4)
 ```
 
-
+```{r}
+catch_data
+head(catch_data)
+glimpse(catch_data)
+str(catch_data)
+```
