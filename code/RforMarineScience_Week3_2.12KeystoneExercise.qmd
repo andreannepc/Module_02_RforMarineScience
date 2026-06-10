@@ -53,9 +53,187 @@ catch4 <- read_excel("C:/Users/andre/Techniques in Marine Science 1/Module_02/Mo
 catch_data <- bind_rows(catch1, catch2, catch3, catch4)
 ```
 
+#loading all the data
+
+```{r}
+getwd()
+metadata <- read_csv("C:/Users/andre/Techniques in Marine Science 1/Module_02/Module_02_RforMarineScience/data/workshop2/estuary_metadata.csv")
+sensor_raw <- read_csv("C:/Users/andre/Techniques in Marine Science 1/Module_02/Module_02_RforMarineScience/data/workshop2/estuary_sonde_data.csv")
+species_dict <- read_csv("C:/Users/andre/Techniques in Marine Science 1/Module_02/Module_02_RforMarineScience/data/workshop2/species_dictionary.csv")
+```
+
+#Bind row together
+
+```{r}
+catch_data <- bind_rows(catch1, catch2, catch3, catch4)
+rm(catch1, catch2, catch3, catch4) #clean up the environment by removing the individual data frames
+
+```
+
+#different way to look at the files
+
 ```{r}
 catch_data
 head(catch_data)
 glimpse(catch_data)
 str(catch_data)
 ```
+
+#Can't tell from these outputs how many levels of site and species we have. Two options: let's check those explicitly by using distinct() or can convert to factors Let's look at the distinct values first, as we might need to clean before converting to factor vars.
+
+```{r}
+catch_data |> 
+  distinct(site)
+
+catch_data |> 
+  distinct(species)
+```
+
+#Next step: #Fix site names and place in reasonable order. #Can decide this now or we can load the metadata and ensure consistency #Fix species names - to do this we'll need to make consistent and then use the taxonomic dictionary to translate to scientific names
+
+#How to standardize the species names using the species dictionary
+
+```{r}
+catch_data <- catch_data |>
+  mutate(
+    site = str_to_lower(str_trim(site)),
+    site = str_replace_all(site, " ", "_")) |> 
+  # Convert all chr to fct
+  mutate(across(where(is.character), as_factor)
+  )
+
+metadata <- metadata |>
+  mutate(
+    site_name = str_to_lower(str_trim(site_name)),
+    site_name = str_replace_all(site_name, " ", "_")) |> 
+  # Convert all chr to fct
+  mutate(across(where(is.character), as_factor)
+  )
+```
+
+#Recheck
+
+```{r}
+catch_data |> 
+  str()
+# catch_data |> 
+#   distinct(site)
+glimpse(metadata)
+
+```
+
+# Check sensor data
+
+```{r}
+head(sensor_raw)
+str(sensor_raw)
+glimpse(sensor_raw)
+summary(sensor_raw)
+```
+
+#### Notes:
+
+- Environmental variables look like they are mostly in good shape (all numeric), however the turbidity data has a failed value (-999) so we'll need to deal with that
+- Site looks ok, but again should check how many levels or distinct values we have:
+
+###Clean up sensor data
+
+```{r}
+sensor_data <- sensor_raw |>
+  mutate(
+    #parse the messy character sting (day/month/year hour:minute)
+    datetime = dmy_hm(timestamp),
+    #Convert the -999.0 hardware error to a true NA
+    clean_turbudity = na_if(turbidity, -999.0),
+    #Convert negative salinity values to NA
+    clean_salinity = if_else(salinity < 0, NA, salinity),
+  )  
+```
+
+# Standardise variable in the catch log to match dictionaries
+
+```{r}
+catch_data <- catch_data |>
+  mutate(
+    site = str_to_lower(str_trim(site)),
+    site = str_replace_all(site, " ", "_"),
+    species = str_to_lower(str_trim(species)),
+    species = str_replace_all(species, " ", "_")
+  )
+```
+
+## Check common names in the catch log match the species dictionary
+
+```{r}
+catch_data |> 
+  distinct(species)
+species_dict |> 
+  distinct(common_name)
+```
+
+# Taxonomic Translation (Common to Scientific)
+
+```{r}
+catch_data <- catch_data |>
+  mutate(common_name = species) |>
+  left_join(species_dict, by = join_by(common_name))
+```
+
+# Summarise 15-minute sonde data into daily means
+
+```{r}
+sensor_daily <- sensor_data |>
+  mutate(
+    date = floor_date(datetime, "day"),
+    date = as_date(date) # Ensure it matches the Date format of the catch log
+  ) |>
+  group_by(site, date) |>
+  summarise(
+    mean_temp = mean(temperature, na.rm = TRUE),
+    mean_salinity = mean(salinity, na.rm = TRUE),
+    mean_turbidity = mean(clean_turbudity, na.rm = TRUE),
+    .groups = "drop"
+  )
+```
+
+# Implicit zero observations
+
+4 x ssp 4 x sites 30 surveys 4*4*30 = 480 possible observations
+
+# Now we need to add in the implicit zero observations for species that were not caught in a given survey. To do this, we can create a complete grid of all possible combinations of site, date, and species, and then join this with our existing catch data.
+
+```{r}
+# 1. Join metadata and sensor data
+catch_data_final <- catch_data |>
+  left_join(metadata, by = join_by(site == site_name)) |>
+  left_join(sensor_daily, by = join_by(site, date))
+
+# 2. Implicit zero observations
+catch_data_final<-
+catch_data_final|>
+  complete(
+    nesting(site, date,lat, lon, zone, mean_temp, mean_salinity, mean_turbidity),
+  scientific_name
+  ) |>
+  mutate(
+  #Cinvert the resulting NA counts to 0
+  count = coalesce(count, 0) 
+  )
+
+```
+
+#we might want to first check that there is an actual difference in salinity between zones: 
+```{r}
+#sal_sum <- 
+
+ catch_data_final |>
+  group_by(scientific_name, zone) |>
+  summarise(
+    sem_salinity = sd(mean_salinity) / sqrt(n()),
+    #sd_salinity = sd(mean_salinity, na.rm = TRUE),
+    median_salinity = median(mean_salinity, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+```
+
