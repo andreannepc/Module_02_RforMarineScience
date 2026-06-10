@@ -222,18 +222,65 @@ catch_data_final|>
 
 ```
 
-#we might want to first check that there is an actual difference in salinity between zones: 
+# Check that there is an actual difference in salinity between zones: 
 ```{r}
-#sal_sum <- 
-
+sal_sum <- 
  catch_data_final |>
-  group_by(scientific_name, zone) |>
+  group_by(zone) |>
   summarise(
     sem_salinity = sd(mean_salinity) / sqrt(n()),
     #sd_salinity = sd(mean_salinity, na.rm = TRUE),
     median_salinity = median(mean_salinity, na.rm = TRUE),
     .groups = "drop"
   )
-
 ```
+
+# Make point and error plot
+```{r}
+sal_sum|>
+  ggplot(aes(x = zone, y = median_salinity)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = median_salinity - sem_salinity, ymax = median_salinity + sem_salinity), width = 0.2) +
+  labs(title = "Median Salinity by Zone with SEM Error Bars", x = "Zone", y = "Median Salinity") +
+  theme_minimal()
+```
+#Now calculate 
+```{r}
+fish_stats <- catch_data_final |>
+  group_by(zone, scientific_name) |>
+  summarise(
+    mean_catch = mean(count, na.rm = TRUE),
+    sem_catch = sd(count, na.rm = TRUE) / sqrt(n()),
+    .groups = "drop"
+  )
+```
+
+#Graph it
+
+```{r}
+fish_stats |> 
+  ggplot(aes(x = zone, y = mean_catch, fill = zone)) +
+  geom_point(position = "dodge", size = 2, pch = 23) +
+  #geom_line(group = 1) +
+  geom_errorbar(aes(ymin = mean_catch - sem_catch, ymax = mean_catch + sem_catch), 
+                position = position_dodge(0.9), width = 0.2) +
+  # add in points from master data
+  # geom_point(data = catch_data_final, aes(x = zone, y = count), 
+  #           position = position_jitter(width = 0.2), alpha = 0.5, size = 1, inherit.aes = FALSE) +
+  facet_wrap(~ scientific_name, scales = "fixed") +
+  theme_bw() +
+  theme(
+    strip.text = element_text(face = "italic", size = 10, colour = "grey20"),
+   # legend.position = "bottom"
+    legend.position = "none"
+  ) +
+  labs(
+    #title = "Predatory Fish Abundance across Estuarine Salinity Gradients",
+    #subtitle = "Ross River Estuary System, May 2026",
+    x = "Spatial Zone",
+    y = "Abundance (per day)",
+    fill = "Spatial Zone"
+  )
+```
+
 
