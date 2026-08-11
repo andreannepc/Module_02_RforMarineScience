@@ -1,0 +1,1110 @@
+---
+title: "RforMarineScience_Modulde2_Week3-4"
+author: "Andreanne Paul-Chowdhury"
+date: "2026-08-11"
+output: html_document
+---
+# Workshop Overview
+
+This workshop introduces foundational data-wrangling and visualisation techniques in R. The aim is to learn how ecological datasets can be inspected, filtered, transformed, summarised and visualised to identify meaningful biological patterns.
+
+```{r}
+#Workshop 1 - Foundations of Data Science
+
+# Load packages
+library(tidyverse)
+library(palmerpenguins)
+
+```
+
+```{r}
+# Exploring the Dataset
+# Load the Palmer Penguins dataset
+data("penguins")
+
+# View the data structure
+glimpse(penguins)
+
+# View a statistical summary
+summary(penguins)
+
+## Selecting Variables
+# Select morphological variables
+morphology_metrics <- penguins |>
+  select(
+    species,
+    island,
+    bill_length_mm,
+    bill_depth_mm,
+    body_mass_g
+  )
+
+glimpse(morphology_metrics)
+
+## Filtering Observations
+# Keep only Adelie penguins
+adelie_penguins <- penguins |>
+  filter(species == "Adelie")
+
+# Keep penguins heavier than 4500 g
+heavy_penguins <- penguins |>
+  filter(body_mass_g > 4500)
+
+# Keep Gentoo penguins sampled on Biscoe Island
+biscoe_gentoo <- penguins |>
+  filter(
+    species == "Gentoo",
+    island == "Biscoe"
+  )
+
+## Arranging Observations
+# Smallest penguins first
+lightest_first <- penguins |>
+  arrange(body_mass_g)
+
+# Heaviest penguins first
+heaviest_first <- penguins |>
+  arrange(desc(body_mass_g))
+
+head(heaviest_first)
+
+## Creating New Variables
+penguin_ratios <- penguins |>
+  mutate(
+    body_mass_kg = body_mass_g / 1000,
+    bill_ratio = bill_length_mm / bill_depth_mm
+  )
+
+glimpse(penguin_ratios)
+
+# Ecological Summaries
+#penguins |>
+#  group_by(species) |>
+#  summarise(
+#    mean_mass_g = mean(body_mass_g)
+#  )
+##NA values
+penguins |>
+  group_by(species) |>
+  summarise(
+    mean_mass_g = mean(body_mass_g, na.rm = TRUE)
+  )
+
+## Mean Body Mass by Species and Island
+body_mass_summary <- penguins |>
+  group_by(species, island) |>
+  summarise(
+    mean_body_mass_g = mean(body_mass_g, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+body_mass_summary
+
+# Data Visualisation
+body_mass_plot <- penguins |>
+  drop_na(body_mass_g) |>
+  ggplot(
+    aes(
+      x = species,
+      y = body_mass_g,
+      fill = island
+    )
+  ) +
+  geom_boxplot() +
+  labs(
+    title = "Penguin Body Mass by Species and Island",
+    x = "Species",
+    y = "Body mass (g)",
+    fill = "Island"
+  ) +
+  theme_minimal()
+
+body_mass_plot
+
+#Save outputs
+ggsave(
+  filename = "outputs/workshop1_body_mass_plot.png",
+  plot = body_mass_plot,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
+
+write_csv(
+  body_mass_summary,
+  "outputs/workshop1_body_mass_summary.csv"
+)
+```
+
+```{r}
+# Final Morphological Summary
+mass_summary_final <- penguins |>
+  group_by(species, island) |>
+  summarise(
+    n = sum(!is.na(body_mass_g)),
+    mean_mass_g = mean(body_mass_g, na.rm = TRUE),
+    sd_mass_g = sd(body_mass_g, na.rm = TRUE),
+    se_mass_g = sd_mass_g / sqrt(n),
+    .groups = "drop"
+  )
+
+mass_summary_final
+
+knitr::kable(
+  mass_summary_final,
+  digits = 2,
+  caption = "Summary of penguin body mass by species and island."
+)
+```
+```{r}
+## Mean Body Mass and Variation
+mass_compare_plot <- mass_summary_final |>
+  ggplot(
+    aes(
+      x = species,
+      y = mean_mass_g,
+      colour = island
+    )
+  ) +
+  geom_point(
+    size = 3,
+    position = position_dodge(width = 0.3)
+  ) +
+  geom_errorbar(
+    aes(
+      ymin = mean_mass_g - sd_mass_g,
+      ymax = mean_mass_g + sd_mass_g
+    ),
+    width = 0.15,
+    position = position_dodge(width = 0.3)
+  ) +
+  labs(
+    title = "Mean Body Mass by Species and Island",
+    subtitle = "Error bars represent ±1 standard deviation",
+    x = "Species",
+    y = "Mean body mass (g)",
+    colour = "Island"
+  ) +
+  theme_minimal()
+
+mass_compare_plot
+
+## Comparing Standard Deviation and Standard Error
+mass_se_plot <- mass_summary_final |>
+  ggplot(
+    aes(
+      x = species,
+      y = mean_mass_g,
+      colour = island
+    )
+  ) +
+  geom_point(
+    size = 3,
+    position = position_dodge(width = 0.3)
+  ) +
+  geom_errorbar(
+    aes(
+      ymin = mean_mass_g - se_mass_g,
+      ymax = mean_mass_g + se_mass_g
+    ),
+    width = 0.15,
+    position = position_dodge(width = 0.3)
+  ) +
+  labs(
+    title = "Mean Body Mass by Species and Island",
+    subtitle = "Error bars represent ±1 standard error",
+    x = "Species",
+    y = "Mean body mass (g)",
+    colour = "Island"
+  ) +
+  theme_minimal()
+
+mass_se_plot
+```
+### Interpretation
+####The grouped analysis demonstrates how individual morphological observations can be transformed into population-level summaries. Comparing mean body mass and variation among species and islands makes differences between biological groups easier to identify than examining the raw observations alone. The exercise also demonstrates that the choice of uncertainty measure matters: standard deviation describes variation among individuals, whereas standard error describes the precision of the estimated group mean.
+
+```{r}
+ggsave(
+  filename = "outputs/workshop1_mass_summary_plot.png",
+  plot = mass_compare_plot,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
+write_csv(
+  mass_summary_final,
+  "outputs/workshop1_mass_summary.csv"
+)
+```
+
+
+#Workshop 2
+# Workshop Overview
+
+This workshop develops advanced data-wrangling skills for working with complex and messy ecological datasets. The workflow focuses on tidy data, reshaping datasets, standardising text and dates, joining related datasets, managing missing values and explicit zeros, and integrating multiple sources of biological and environmental data.
+```{r}
+# Load packages
+library(tidyverse)
+library(palmerpenguins)
+library(readxl)
+library(lubridate)
+library(here)
+
+# Tidy Data
+##tidy data aren't necessarily prettier, they're structured so R can analyse them efficiently.
+
+# Reshaping Data
+
+## Pivoting Longer
+data("penguins")
+
+penguins_long <- penguins |>
+  pivot_longer(
+    cols = c(
+      bill_length_mm,
+      bill_depth_mm,
+      flipper_length_mm,
+      body_mass_g
+    ),
+    names_to = "measurement_type",
+    values_to = "value"
+  )
+
+glimpse(penguins_long)
+
+penguins_long |>
+  drop_na(value) |>
+  ggplot(
+    aes(
+      x = value,
+      fill = species
+    )
+  ) +
+  geom_histogram(
+    bins = 30,
+    alpha = 0.7,
+    colour = "black"
+  ) +
+  facet_wrap(
+    ~ measurement_type,
+    scales = "free_x"
+  ) +
+  theme_minimal() +
+  labs(
+    title = "Morphometric Distributions Across Penguin Species",
+    x = "Measurement value",
+    y = "Frequency",
+    fill = "Species"
+  )
+
+## Pivoting Wider
+mass_summary <- penguins |>
+  drop_na(body_mass_g) |>
+  group_by(species, island) |>
+  summarise(
+    mean_mass = mean(body_mass_g),
+    .groups = "drop"
+  )
+
+mass_summary
+
+mass_matrix <- mass_summary |>
+  pivot_wider(
+    names_from = island,
+    values_from = mean_mass
+  )
+
+mass_matrix
+
+# Cleaning Text and Dates
+messy_sites <- tibble(
+  site_id = c(
+    " Nelly Bay",
+    "nelly_bay",
+    "NELLY BAY",
+    " Geoffrey_Bay ",
+    "geoffrey bay"
+  )
+)
+
+clean_sites <- messy_sites |>
+  mutate(
+    site_clean = str_to_lower(site_id),
+    site_clean = str_trim(site_clean),
+    site_clean = str_replace_all(
+      site_clean,
+      pattern = " ",
+      replacement = "_"
+    )
+  )
+
+clean_sites
+
+date_1 <- dmy("25/12/2026")
+date_2 <- ymd("2026-12-25")
+
+date_1
+date_2
+
+date_1 == date_2
+
+sensor_data <- tibble(
+  raw_time = c(
+    "14-05-2026 08:30:00",
+    "14-05-2026 08:45:00",
+    "14-05-2026 09:00:00"
+  ),
+  temperature = c(
+    24.5,
+    24.6,
+    24.4
+  )
+)
+
+sensor_clean <- sensor_data |>
+  mutate(
+    true_time = dmy_hms(raw_time)
+  )
+
+sensor_clean
+
+#Practise a relational join
+# Relational Data and Joins
+island_metadata <- tibble(
+  island_name = c(
+    " biscoe",
+    "Dream ",
+    "Torgersen"
+  ),
+  station_install = c(
+    "15/01/2003",
+    "22-03-2004",
+    "05/11/2001"
+  ),
+  latitude = c(
+    -64.81,
+    -64.73,
+    -64.76
+  )
+)
+
+island_metadata
+#Clean it
+clean_metadata <- island_metadata |>
+  mutate(
+    island_name = str_trim(island_name),
+    island_name = str_to_title(island_name),
+    station_install = dmy(station_install)
+  )
+
+clean_metadata
+
+#Join with penguins
+penguins_spatial <- penguins |>
+  left_join(
+    clean_metadata,
+    by = join_by(island == island_name)
+  )
+
+glimpse(penguins_spatial)
+
+#Why anti_join() matters
+penguins |>
+  anti_join(
+    clean_metadata,
+    by = join_by(island == island_name)
+  )
+
+# Missing Values and Ecological Zeros
+logger_data <- tibble(
+  depth_m = c(10, 20, 30, 40),
+  temp_c = c(24.5, 24.1, -999, 23.5)
+)
+logger_clean <- logger_data |>
+  mutate(
+    temp_c = na_if(temp_c, -999)
+  )
+
+logger_clean
+
+#Understand ecological zeros
+raw_catch <- tibble(
+  site = c(
+    "Reef_1",
+    "Reef_1",
+    "Reef_2"
+  ),
+  species = c(
+    "Pmaculatus",
+    "Pleopardus",
+    "Pmaculatus"
+  ),
+  count = c(
+    5,
+    2,
+    8
+  )
+)
+
+full_catch_matrix <- raw_catch |>
+  complete(
+    site,
+    species,
+    fill = list(count = 0)
+  )
+
+full_catch_matrix
+```
+
+```{r}
+#Data rescue mission
+
+# Estuary Fish Survey Data Rescue Mission
+
+## Inspecting the Raw Data
+list.files("data")
+
+catch_sheets <- excel_sheets(
+  here("data", "estuary_catch_log.xlsx")
+)
+
+catch_sheets
+
+catch_test <- read_excel(
+  here("data", "estuary_catch_log.xlsx"),
+  sheet = catch_sheets[1]
+)
+
+glimpse(catch_test)
+head(catch_test)
+
+#Inspect all other 3 files
+metadata_raw <- read_csv(
+  here("data", "estuary_metadata.csv")
+)
+
+sonde_raw <- read_csv(
+  here("data", "estuary_sonde_data.csv")
+)
+
+species_dictionary_raw <- read_csv(
+  here("data", "species_dictionary.csv")
+)
+
+# Data Rescue Mission
+
+## Checking Variable Names
+# Catch data - first Excel sheet
+names(catch_test)
+
+# Site metadata
+names(metadata_raw)
+
+# Water-quality sonde data
+names(sonde_raw)
+
+# Species dictionary
+#names(species_dictionary)
+
+#Something was wrong dont know what but had to load file again
+list.files("data")
+
+species_dictionary_raw <- read_csv(
+  here("data", "species_dictionary.csv")
+)
+
+names(species_dictionary_raw)
+glimpse(species_dictionary_raw)
+
+## Phase 1: Ingestion and Decontamination
+
+### Combining Catch Records
+catch_raw_all <- map_dfr(
+  catch_sheets,
+  ~ read_excel(
+    here("data", "estuary_catch_log.xlsx"),
+    sheet = .x
+  )
+)
+
+glimpse(catch_raw_all)
+
+nrow(catch_raw_all)
+
+distinct(catch_raw_all, site)
+
+#Standardise the catch data
+
+catch_clean <- catch_raw_all |>
+  mutate(
+    # Clean site names
+    site = str_squish(site),
+    site = str_to_lower(site),
+    site = str_replace_all(site, "[^a-z0-9]+", "_"),
+    
+    # Clean species names
+    species = str_squish(species),
+    species = str_to_lower(species),
+    species = str_replace_all(species, "[^a-z0-9]+", "_")
+  )
+
+glimpse(catch_clean)
+
+distinct(catch_clean, site)
+
+distinct(catch_clean, species)
+
+#Clean the site metadata
+metadata_clean <- metadata_raw |>
+  mutate(
+    site_name = str_squish(site_name),
+    site_name = str_to_lower(site_name),
+    site_name = str_replace_all(
+      site_name,
+      "[^a-z0-9]+",
+      "_"
+    )
+  ) |>
+  rename(
+    site = site_name
+  )
+
+metadata_clean
+
+distinct(metadata_clean, site)
+
+#Clean the species dictionary
+species_dictionary_clean <- species_dictionary_raw |>
+  mutate(
+    common_name = str_squish(common_name),
+    common_name = str_to_lower(common_name),
+    common_name = str_replace_all(
+      common_name,
+      "[^a-z0-9]+",
+      "_"
+    )
+  )
+
+species_dictionary_clean
+
+#Clean the sonde data
+sonde_clean <- sonde_raw |>
+  mutate(
+    # Standardise site names
+    site = str_squish(site),
+    site = str_to_lower(site),
+    site = str_replace_all(
+      site,
+      "[^a-z0-9]+",
+      "_"
+    ),
+    
+    # Convert timestamp text into real date-time data
+    timestamp = dmy_hms(timestamp),
+    
+    # Convert sensor failure code to genuine missing data
+    turbidity = na_if(turbidity, -999.0)
+  )
+
+glimpse(sonde_clean)
+
+#Check the -999 gone 
+sum(sonde_clean$turbidity == -999, na.rm = TRUE)
+sum(is.na(sonde_clean$turbidity))
+
+#Check if data sets will join
+catch_clean |>
+  distinct(site) |>
+  anti_join(
+    metadata_clean |>
+      distinct(site),
+    by = "site"
+  )
+
+## Phase 2: Relational Architecture
+
+### Daily Water Quality Summary
+
+sonde_daily <- sonde_clean |>
+  mutate(
+    date = as.Date(floor_date(timestamp, unit = "day"))
+  ) |>
+  group_by(site, date) |>
+  summarise(
+    mean_temperature = mean(temperature, na.rm = TRUE),
+    mean_salinity = mean(salinity, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+sonde_daily
+
+glimpse(sonde_daily)
+
+head(sonde_daily)
+
+distinct(sonde_daily, site)
+
+#Check catch date format
+class(catch_clean$date)
+
+class(sonde_daily$date)
+
+catch_clean <- catch_clean |>
+  mutate(
+    date = as.Date(date)
+  )
+class(catch_clean$date)
+
+#Translate common names to scientific names
+catch_taxonomy <- catch_clean |>
+  left_join(
+    species_dictionary_clean,
+    by = c("species" = "common_name")
+  )
+
+glimpse(catch_taxonomy)
+
+distinct(
+  catch_taxonomy,
+  species,
+  scientific_name
+)
+
+#Check that the toxonomy join worked
+sum(is.na(catch_taxonomy$scientific_name))
+
+#Join the spatial metadata
+catch_spatial <- catch_taxonomy |>
+  left_join(
+    metadata_clean,
+    by = "site"
+  )
+
+glimpse(catch_spatial)
+sum(is.na(catch_spatial$zone))
+
+#Join daily water-qualityd data
+master_data <- catch_spatial |>
+  left_join(
+    sonde_daily,
+    by = c("site", "date")
+  )
+
+glimpse(master_data)
+
+#Check the Join
+sum(is.na(master_data$zone))
+sum(is.na(master_data$scientific_name))
+sum(is.na(master_data$mean_salinity))
+sum(is.na(master_data$mean_temperature))
+
+#Use anti_join() if environmental values are missing
+sum(is.na(master_data$mean_salinity))
+catch_spatial |>
+  distinct(site, date) |>
+  anti_join(
+    sonde_daily |>
+      distinct(site, date),
+    by = c("site", "date")
+  )
+#Inspect master dataset
+head(master_data)
+glimpse(master_data)
+summary(master_data)
+```
+
+```{r}
+# 1. Look at raw catch dates
+head(catch_clean$date, 10)
+
+# 2. Look at sonde daily dates
+head(sonde_daily$date, 10)
+
+# 3. Check the classes
+class(catch_clean$date)
+class(sonde_daily$date)
+
+# 4. Check date ranges
+range(catch_clean$date, na.rm = TRUE)
+range(sonde_daily$date, na.rm = TRUE)
+
+# 5. Make sure the sonde timestamp actually parsed correctly
+sum(is.na(sonde_clean$timestamp))
+
+# 6. See which site-date combinations fail to match
+catch_spatial |>
+  distinct(site, date) |>
+  anti_join(
+    sonde_daily |>
+      distinct(site, date),
+    by = c("site", "date")
+  )
+```
+
+```{r}
+head(sonde_raw$timestamp, 10)
+#Correct sonde_clean
+sonde_clean <- sonde_raw |>
+  mutate(
+    # Standardise site names
+    site = str_squish(site),
+    site = str_to_lower(site),
+    site = str_replace_all(
+      site,
+      "[^a-z0-9]+",
+      "_"
+    ),
+
+    # Correctly parse day/month/year hour:minute
+    timestamp = dmy_hm(timestamp),
+
+    # Convert turbidity sensor failure code to NA
+    turbidity = na_if(turbidity, -999.0)
+  )
+
+sum(is.na(sonde_clean$timestamp))
+
+head(sonde_clean$timestamp)
+
+#recreate the daily sonde summary 
+sonde_daily <- sonde_clean |>
+  mutate(
+    date = as.Date(timestamp)
+  ) |>
+  group_by(site, date) |>
+  summarise(
+    mean_temperature = mean(
+      temperature,
+      na.rm = TRUE
+    ),
+    mean_salinity = mean(
+      salinity,
+      na.rm = TRUE
+    ),
+    .groups = "drop"
+  )
+
+sonde_daily
+
+range(sonde_daily$date)
+
+#Check that dates overlap
+range(catch_clean$date)
+
+range(sonde_daily$date)
+
+catch_spatial |>
+  distinct(site, date) |>
+  anti_join(
+    sonde_daily |>
+      distinct(site, date),
+    by = c("site", "date")
+  )
+
+#Rebuild master_data
+master_data <- catch_spatial |>
+  left_join(
+    sonde_daily,
+    by = c("site", "date")
+  )
+sum(is.na(master_data$mean_temperature))
+
+sum(is.na(master_data$mean_salinity))
+
+glimpse(master_data)
+```
+
+```{r}
+## Phase 3: Zero-Catch Framework
+catch_for_zero <- catch_taxonomy |>
+  select(
+    site,
+    date,
+    scientific_name,
+    count
+  ) |>
+  group_by(
+    site,
+    date,
+    scientific_name
+  ) |>
+  summarise(
+    count = sum(count, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+glimpse(catch_for_zero)
+
+#Check for duplicates
+catch_for_zero |>
+  count(
+    site,
+    date,
+    scientific_name
+  ) |>
+  filter(n > 1)
+
+#How many observations?
+nrow(catch_for_zero) #427
+table(catch_for_zero$count == 0)
+
+#Create the zero-catch framework
+catch_complete <- catch_for_zero |>
+  complete(
+    nesting(site, date),
+    scientific_name
+  ) |>
+  mutate(
+    count = coalesce(count, 0)
+  )
+
+catch_complete
+
+#See what changed
+nrow(catch_for_zero)
+
+nrow(catch_complete)
+
+species_check <- catch_complete |>
+  count(
+    site,
+    date,
+    name = "n_species"
+  )
+
+species_check
+
+distinct(
+  species_check,
+  n_species
+)
+
+#Reattach the spatial metadata
+master_complete <- catch_complete |>
+  left_join(
+    metadata_clean,
+    by = "site"
+  )
+glimpse(master_complete)
+
+#Reattach the environmental data
+master_complete <- master_complete |>
+  left_join(
+    sonde_daily,
+    by = c("site", "date")
+  )
+glimpse(master_complete)
+
+#Validate the finished master dataset
+# No missing scientific names
+sum(is.na(master_complete$scientific_name))
+# No missing zones
+sum(is.na(master_complete$zone))
+# No missing salinity
+sum(is.na(master_complete$mean_salinity))
+# No missing temperature
+sum(is.na(master_complete$mean_temperature))
+
+#Check the number of zero catches
+master_complete |>
+  summarise(
+    total_rows = n(),
+    zero_catches = sum(count == 0),
+    positive_catches = sum(count > 0)
+  )
+master_complete |>
+  filter(site == "upper_ross") |>
+  arrange(date, scientific_name) |>
+  select(
+    site,
+    date,
+    scientific_name,
+    count
+  ) |>
+  head(12)
+
+#Save
+write_csv(
+  master_complete,
+  here(
+    "outputs",
+    "workshop2_clean_estuary_master.csv"
+  )
+)
+```
+
+```{r}
+## Phase 4: Statistical Extraction
+estuary_summary <- master_complete |>
+  group_by(
+    scientific_name,
+    zone
+  ) |>
+  summarise(
+    # Number of observations
+    n = n(),
+
+    # Fish abundance
+    mean_count = mean(count, na.rm = TRUE),
+    sd_count = sd(count, na.rm = TRUE),
+
+    # Salinity
+    avg_salinity = mean(mean_salinity, na.rm = TRUE),
+    sd_salinity = sd(mean_salinity, na.rm = TRUE),
+
+    .groups = "drop"
+  ) |>
+  mutate(
+    # Standard errors
+    se_count = sd_count / sqrt(n),
+    se_salinity = sd_salinity / sqrt(n)
+  )
+
+estuary_summary
+
+glimpse(estuary_summary)
+summary(estuary_summary)
+
+#Round the values
+estuary_portfolio_table <- estuary_summary |>
+  select(
+    scientific_name,
+    zone,
+    n,
+    mean_count,
+    sd_count,
+    avg_salinity,
+    sd_salinity
+  ) |>
+  mutate(
+    across(
+      c(
+        mean_count,
+        sd_count,
+        avg_salinity,
+        sd_salinity
+      ),
+      ~ round(.x, 2)
+    )
+  )
+
+estuary_portfolio_table
+
+knitr::kable(
+  estuary_portfolio_table,
+  caption = "Mean fish abundance and salinity by species and estuary zone."
+)
+
+```
+
+```{r}
+## Phase 5: Visual Communication
+plot_data <- master_complete |>
+  mutate(
+    site = factor(
+      site,
+      levels = c(
+        "upper_ross",
+        "mid_ross",
+        "lower_ross",
+        "ross_mouth"
+      )
+    ),
+
+    # Create labels that ggplot can display in italics
+    facet_name = paste0(
+      "italic('",
+      scientific_name,
+      "')"
+    )
+  )
+
+levels(plot_data$site)
+
+#Abundance-salinity figure
+fish_salinity_plot <- plot_data |>
+  ggplot(
+    aes(
+      x = mean_salinity,
+      y = count,
+      colour = site
+    )
+  ) +
+  geom_point(
+    alpha = 0.6,
+    size = 2
+  ) +
+  facet_wrap(
+    ~ facet_name,
+    labeller = label_parsed,
+    scales = "free_y"
+  ) +
+  labs(
+    title = "Predatory Fish Abundance Along the Estuary Salinity Gradient",
+    x = "Mean daily salinity",
+    y = "Fish abundance (count)",
+    colour = "Sampling site"
+  ) +
+  theme_minimal(base_size = 12)
+
+fish_salinity_plot
+
+#Add ecological trend line
+fish_salinity_plot <- plot_data |>
+  ggplot(
+    aes(
+      x = mean_salinity,
+      y = count,
+      colour = site
+    )
+  ) +
+  geom_point(
+    alpha = 0.55,
+    size = 2
+  ) +
+  geom_smooth(
+    aes(group = 1),
+    method = "loess",
+    se = FALSE,
+    colour = "black",
+    linewidth = 0.8
+  ) +
+  facet_wrap(
+    ~ facet_name,
+    labeller = label_parsed,
+    scales = "free_y"
+  ) +
+  labs(
+    title = "Predatory Fish Abundance Along the Estuary Salinity Gradient",
+    subtitle = "Points represent individual sampling events; lines show overall abundance trends",
+    x = "Mean daily salinity",
+    y = "Fish abundance (count)",
+    colour = "Sampling site"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "bottom",
+    panel.grid.minor = element_blank()
+  )
+
+fish_salinity_plot
+
+#Save 
+ggsave(
+  filename = here(
+    "outputs",
+    "workshop2_fish_salinity_gradient.png"
+  ),
+  plot = fish_salinity_plot,
+  width = 9,
+  height = 6,
+  dpi = 300
+)
+```
+
+### Interpretation
+The final visualisation integrates biological catch data with environmental measurements collected along the estuary. Faceting by species allows species-specific abundance patterns to be compared across the salinity gradient, while inclusion of explicit zero catches ensures that observed absences contribute to the ecological interpretation rather than being omitted from the analysis.
+
+###Troubleshooting
+During the workflow, all temperature and salinity values initially appeared as missing after joining the biological and environmental datasets. I traced the problem backwards through the pipeline and found that all 11,520 sonde timestamps had been converted to NA because the original timestamps contained hours and minutes but no seconds. Replacing dmy_hms() with the appropriate dmy_hm() parser corrected the timestamps and allowed the datasets to join successfully. This demonstrated the importance of validating intermediate outputs rather than assuming that code has worked simply because it runs without an error.
